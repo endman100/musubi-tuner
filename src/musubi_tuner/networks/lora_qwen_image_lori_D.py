@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-import musubi_tuner.networks.lora as lori_D
+import musubi_tuner.networks.lori_D as lora 
 
 
 QWEN_IMAGE_TARGET_REPLACE_MODULES = ["QwenImageTransformerBlock"]

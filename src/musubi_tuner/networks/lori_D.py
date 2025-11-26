@@ -297,6 +297,17 @@ class LoRAInfModule(LoRAModule):
             return self.org_forward(x)
         return self.default_forward(x)
 
+    def requires_grad_(self, requires_grad: bool = True):
+        self.lora_up.requires_grad_(requires_grad)
+        self.lora_down.requires_grad_(False)
+        return self
+    def get_trainable_params(self):
+        params = self.named_parameters()
+        trainable_params = []
+        for param in params:
+            if param[0] == "lora_up.weight":  # up only
+                trainable_params.append(param[1])
+        return trainable_params
 
 def create_arch_network(
     multiplier: float,
@@ -701,11 +712,6 @@ class LoRANetwork(torch.nn.Module):
         logger.info(f"LoRA+ UNet LR Ratio: {self.loraplus_lr_ratio}")
         # logger.info(f"LoRA+ Text Encoder LR Ratio: {self.loraplus_text_encoder_lr_ratio or self.loraplus_lr_ratio}")
 
-    def requires_grad_(self, requires_grad: bool = True):
-        self.lora_up.requires_grad_(requires_grad)
-        self.lora_down.requires_grad_(False)
-        return self
-
     def prepare_optimizer_params(self, unet_lr: float = 1e-4, **kwargs):
         self.requires_grad_(True)
 
@@ -765,12 +771,7 @@ class LoRANetwork(torch.nn.Module):
         pass
 
     def get_trainable_params(self):
-        params = self.named_parameters()
-        trainable_params = []
-        for param in params:
-            if param[0] == "lora_up.weight":  # up only
-                trainable_params.append(param[1])
-        return trainable_params
+        return self.parameters()
 
     def save_weights(self, file, dtype, metadata):
         if metadata is not None and len(metadata) == 0:
