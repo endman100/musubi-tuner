@@ -99,6 +99,9 @@ class LoRAModule(torch.nn.Module):
         self.rank_dropout = rank_dropout
         self.module_dropout = module_dropout
 
+        self.lora_up.requires_grad_(True)
+        self.lora_down.requires_grad_(False)
+
     def apply_to(self):
         self.org_forward = self.org_module.forward
         self.org_module.forward = self.forward
@@ -161,6 +164,21 @@ class LoRAModule(torch.nn.Module):
             lxs = [lora_up(lx) for lora_up, lx in zip(self.lora_up, lxs)]
 
             return org_forwarded + torch.cat(lxs, dim=-1) * self.multiplier * scale
+
+    def requires_grad_(self, requires_grad: bool = True):
+        print(f"lori_D FLAG .requires_grad_ {requires_grad}")
+        self.lora_up.requires_grad_(requires_grad)
+        self.lora_down.requires_grad_(False)
+        return self
+    
+    def get_trainable_params(self): 
+        print("lori_D FLAG .get_trainable_params")
+        params = self.named_parameters()
+        trainable_params = []
+        for param in params:
+            if param[0] == "lora_up.weight":  # up only
+                trainable_params.append(param)
+        return trainable_params
 
 
 class LoRAInfModule(LoRAModule):
@@ -297,17 +315,6 @@ class LoRAInfModule(LoRAModule):
             return self.org_forward(x)
         return self.default_forward(x)
 
-    def requires_grad_(self, requires_grad: bool = True):
-        self.lora_up.requires_grad_(requires_grad)
-        self.lora_down.requires_grad_(False)
-        return self
-    def get_trainable_params(self):
-        params = self.named_parameters()
-        trainable_params = []
-        for param in params:
-            if param[0] == "lora_up.weight":  # up only
-                trainable_params.append(param[1])
-        return trainable_params
 
 def create_arch_network(
     multiplier: float,
@@ -721,7 +728,7 @@ class LoRANetwork(torch.nn.Module):
         def assemble_params(loras, lr, loraplus_ratio):
             param_groups = {"lora": {}, "plus": {}}
             for lora in loras:
-                for name, param in lora.named_parameters():
+                for name, param in lora.get_trainable_params():
                     if loraplus_ratio is not None and "lora_up" in name:
                         param_groups["plus"][f"{lora.lora_name}.{name}"] = param
                     else:
